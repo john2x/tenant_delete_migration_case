@@ -1,62 +1,80 @@
-This repo provides a minimal test case replicating https://github.com/bernardopires/django-tenant-schemas/issues/336
+This repo provides minimal test case for failing migrations when deleting a model
+that uses `django-taggit`' for tags.
 
-```
-(test) vagrant@vagrant-ubuntu-trusty-64:~/kombu_tenant_minimal_case$ ./manage.py migrate_schemas
-=== Running migrate for schema public
-Operations to perform:
-  Apply all migrations: customers, app1, nested_app2, sessions, admin, kombu_transport_django, contenttypes, auth, shared_app
-Running migrations:
-  Rendering model states... DONE
-  Applying contenttypes.0001_initial... OK
-  Applying auth.0001_initial... OK
-  Applying admin.0001_initial... OK
-  Applying admin.0002_logentry_remove_auto_add... OK
-  Applying app1.0001_initial... OK
-  Applying contenttypes.0002_remove_content_type_name... OK
-  Applying auth.0002_alter_permission_name_max_length... OK
-  Applying auth.0003_alter_user_email_max_length... OK
-  Applying auth.0004_alter_user_username_opts... OK
-  Applying auth.0005_alter_user_last_login_null... OK
-  Applying auth.0006_require_contenttypes_0002... OK
-  Applying auth.0007_alter_validators_add_error_messages... OK
-  Applying customers.0001_initial... OK
-  Applying kombu_transport_django.0001_initial... OK
-  Applying nested_app2.0001_initial... OK
-  Applying sessions.0001_initial... OK
-  Applying shared_app.0001_initial... OK
+# Step A
 
-(test) vagrant@vagrant-ubuntu-trusty-64:~/kombu_tenant_minimal_case$ ./manage.py shell
-Python 2.7.6 (default, Jun 22 2015, 17:58:13)
-[GCC 4.8.2] on linux2
-Type "help", "copyright", "credits" or "license" for more information.
-(InteractiveConsole)
-> from nested.app1.models import App1
-> App1.objects.all()  # ok
-[]
+Clone this repo and checkout branch `step-a` and create a Postgres database named `tenant_delete_migration_case`. Modify the database config in `settings.py` as necessary.
 
-> from nested.app2.models import App2
-> App2.objects.all()  # can't find the table
-Traceback (most recent call last):
-  File "<console>", line 1, in <module>
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/models/query.py", line 234, in __repr__
-    data = list(self[:REPR_OUTPUT_SIZE + 1])
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/models/query.py", line 258, in __iter__
-    self._fetch_all()
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/models/query.py", line 1074, in _fetch_all
-    self._result_cache = list(self.iterator())
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/models/query.py", line 52, in __iter__
-    results = compiler.execute_sql()
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/models/sql/compiler.py", line 848, in execute_sql
-    cursor.execute(sql, params)
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 79, in execute
-    return super(CursorDebugWrapper, self).execute(sql, params)
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 64, in execute
-    return self.cursor.execute(sql, params)
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/utils.py", line 95, in __exit__
-    six.reraise(dj_exc_type, dj_exc_value, traceback)
-  File "/home/vagrant/test/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 64, in execute
-    return self.cursor.execute(sql, params)
-ProgrammingError: relation "nested_app2_app2" does not exist
-LINE 1: ...d_app2_app2"."id", "nested_app2_app2"."name" FROM "nested_ap...
-                                                             ^
-```
+    $ git checkout step-a
+    $ pip install -r requirements.txt
+    $ ./manage.py migrate_schemas
+    $ ./manage.py bootstrap_test_data
+
+
+# Step B
+
+After the test data have been created, checkout branch `step-b`. This branch deletes the `ToBeDeletedModel` with the relevant migrations.
+
+    $ git checkout step-b
+    $ ./manage.py migrate_schemas
+
+    === Running migrate for schema public
+    Operations to perform:
+      Apply all migrations: customers, sessions, admin, contenttypes, auth, taggit, shared_app
+    Running migrations:
+      Rendering model states... DONE
+      Applying shared_app.0002_delete_model... OK
+    The following content types are stale and need to be deleted:
+    
+        shared_app | tobedeletedmodel
+    
+    Any objects related to these content types by a foreign key will also
+    be deleted. Are you sure you want to delete these content types?
+    If you're unsure, answer 'no'.
+
+    Type 'yes' to continue, or 'no' to cancel: yes
+    Traceback (most recent call last):
+      File "./manage.py", line 10, in <module>
+        execute_from_command_line(sys.argv)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/__init__.py", line 353, in execute_from_command_line
+        utility.execute()
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/__init__.py", line 345, in execute
+        self.fetch_command(subcommand).run_from_argv(self.argv)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/base.py", line 348, in run_from_argv
+        self.execute(*args, **cmd_options)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/base.py", line 399, in execute
+        output = self.handle(*args, **options)
+      File "/var/www/tenant_delete_migrations_case/venv/src/django-tenant-schemas/tenant_schemas/management/commands/migrate_schemas.py", line 40, in handle
+        self.run_migrations(self.schema_name, settings.SHARED_APPS)
+      File "/var/www/tenant_delete_migrations_case/venv/src/django-tenant-schemas/tenant_schemas/management/commands/migrate_schemas.py", line 58, in run_migrations
+        command.execute(*self.args, **self.options)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/base.py", line 399, in execute
+        output = self.handle(*args, **options)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/commands/migrate.py", line 204, in handle
+        emit_post_migrate_signal(self.verbosity, self.interactive, connection.alias)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/core/management/sql.py", line 50, in emit_post_migrate_signal
+        using=db)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/dispatch/dispatcher.py", line 192, in send
+        response = receiver(signal=self, sender=sender, **named)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/contrib/contenttypes/management.py", line 81, in update_contenttypes
+        ct.delete()
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/models/base.py", line 870, in delete
+        return collector.delete()
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/models/deletion.py", line 292, in delete
+        count = qs._raw_delete(using=self.using)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/models/query.py", line 614, in _raw_delete
+        return sql.DeleteQuery(self.model).delete_qs(self, using)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/models/sql/subqueries.py", line 81, in delete_qs
+        cursor = self.get_compiler(using).execute_sql(CURSOR)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/models/sql/compiler.py", line 848, in execute_sql
+        cursor.execute(sql, params)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 79, in execute
+        return super(CursorDebugWrapper, self).execute(sql, params)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 64, in execute
+        return self.cursor.execute(sql, params)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/utils.py", line 95, in __exit__
+        six.reraise(dj_exc_type, dj_exc_value, traceback)
+      File "/var/www/tenant_delete_migrations_case/venv/local/lib/python2.7/site-packages/django/db/backends/utils.py", line 64, in execute
+        return self.cursor.execute(sql, params)
+    django.db.utils.ProgrammingError: relation "taggit_taggeditem" does not exist
+    LINE 1: DELETE FROM "taggit_taggeditem" WHERE "taggit_taggeditem"."c...
