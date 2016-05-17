@@ -1,0 +1,3 @@
+Django==1.9.6
+-e git+https://github.com/bernardopires/django-tenant-schemas.git@63565870199722acdf194d494d50eed51777d984#egg=django-tenant-schemas
+django-taggit==0.17.6
