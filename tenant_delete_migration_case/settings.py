@@ -39,7 +39,6 @@ SHARED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'kombu.transport.django',
 ]
 
 TENANT_APPS = ['django.contrib.contenttypes', 'taggit', 'shared_app']
