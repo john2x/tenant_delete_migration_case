@@ -12,11 +12,5 @@ class SharedModel(models.Model):
     tags = TaggableManager()
 
 
-class ToBeDeletedModel(models.Model):
-    name = models.CharField(max_length=255)
-    related_obj = models.ForeignKey('shared_app.RelatedModel')
-    tags = TaggableManager()
-
-
 class RelatedModel(models.Model):
     name = models.CharField(max_length=255)
